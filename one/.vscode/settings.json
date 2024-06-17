@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "thread": "c",
-        "winsock2.h": "c",
-        "iostream": "cpp",
-        "ostream": "cpp"
-    }
-}
