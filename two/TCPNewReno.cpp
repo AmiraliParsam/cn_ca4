@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstdlib>
 #include <ctime>
+#include <algorithm> // for std::find
 
 using namespace std;
 
@@ -36,10 +37,50 @@ void receive_ack(int ack_num)
     acked_packets++;
 
     // Remove acknowledged packet from packets_in_flight
-    auto it = find(packets_in_flight.begin(), packets_in_flight.end(), ack_num);
+    auto it = std::find(packets_in_flight.begin(), packets_in_flight.end(), ack_num);
     if (it != packets_in_flight.end())
     {
         packets_in_flight.erase(it);
+    }
+
+    // Congestion control phases
+    if (acked_packets >= ssthresh)
+    {
+        // Congestion avoidance phase
+        cwnd += MSS * MSS / cwnd;
+    }
+    else
+    {
+        // Slow start phase
+        cwnd *= 2;
+    }
+
+    // Check for fast retransmit condition (3 duplicate ACKs)
+    int duplicate_count = 0;
+    for (int i = 0; i < packets_in_flight.size(); ++i)
+    {
+        int packet_num = packets_in_flight[i];
+        if (ack_received[packet_num])
+        {
+            duplicate_count++;
+            if (duplicate_count >= 3)
+            {
+                // Perform fast retransmit and recovery
+                cout << "Fast retransmit triggered for packet " << packet_num << ".\n";
+                ssthresh = max(cwnd / 2, MSS); // Set new ssthresh
+                cwnd = ssthresh + 3 * MSS;     // Perform fast retransmit and recovery
+                acked_packets = packet_num;    // Adjust acked_packets to simulate retransmission
+                packets_in_flight.clear();     // Clear packets in flight
+                for (int j = packet_num; j < next_seq_num; ++j)
+                {
+                    if (!ack_received[j])
+                    {
+                        send_packet(j);
+                    }
+                }
+                break; // Exit loop after fast retransmit
+            }
+        }
     }
 }
 
@@ -68,54 +109,6 @@ void simulate_network()
                 {
                     receive_ack(packet_num);
                 }
-            }
-        }
-
-        // Check for fast retransmit condition (3 duplicate ACKs)
-        int duplicate_count = 0;
-        int duplicate_packet = -1;
-        for (int i = 0; i < packets_in_flight.size(); ++i)
-        {
-            int packet_num = packets_in_flight[i];
-            if (ack_received[packet_num])
-            {
-                duplicate_count++;
-                if (duplicate_count >= 3)
-                {
-                    duplicate_packet = packet_num;
-                    break;
-                }
-            }
-        }
-
-        if (duplicate_packet != -1)
-        {
-            // Perform fast retransmit
-            cout << "Fast retransmit triggered for packet " << duplicate_packet << ".\n";
-            ssthresh = max(cwnd / 2, MSS);    // Set new ssthresh
-            cwnd = ssthresh + 3 * MSS;        // Perform fast retransmit and recovery
-            acked_packets = duplicate_packet; // Adjust acked_packets to simulate retransmission
-            packets_in_flight.clear();        // Clear packets in flight
-            for (int i = duplicate_packet; i < next_seq_num; ++i)
-            {
-                if (!ack_received[i])
-                {
-                    send_packet(i);
-                }
-            }
-        }
-        else
-        {
-            // Congestion control phases
-            if (acked_packets >= ssthresh)
-            {
-                // Congestion avoidance phase
-                cwnd += MSS * MSS / cwnd;
-            }
-            else
-            {
-                // Slow start phase
-                cwnd *= 2;
             }
         }
     }
