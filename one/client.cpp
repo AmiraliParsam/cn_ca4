@@ -94,7 +94,7 @@ int main()
         return 1;
     }
 
-    // Perform SYN, SYN-ACK, ACK handshake
+    // Perform custom SYN, SYN-ACK, ACK handshake
     sendData(clientSocket);
     closesocket(clientSocket);
     WSACleanup();
