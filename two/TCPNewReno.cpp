@@ -1,83 +1,87 @@
 #include <iostream>
-#include <algorithm> // for min
+#include <vector>
 
 using namespace std;
 
-// Simulated network parameters
-const int MAX_SEGMENTS = 1000; // Max segments to send
-const int MSS = 1;             // Maximum Segment Size (in segments)
-const int INITIAL_CWND = 1;    // Initial congestion window size
-const int THRESHOLD = 16;      // Initial threshold
+// Simulation parameters
+const int MAX_PACKETS_IN_FLIGHT = 100;
+const int INITIAL_CWND = 1;
+const int INITIAL_SSTHRESH = 16;
 
-int cwnd = INITIAL_CWND;  // Congestion window
-int ssthresh = THRESHOLD; // Slow start threshold
+// State variables
+int cwnd = INITIAL_CWND;
+int ssthresh = INITIAL_SSTHRESH;
+int packets_in_flight = 0;
+int duplicate_ack_count = 0;
+bool in_slow_start = true;
 
-void simulate_network()
+// Function to simulate sending a packet
+void send_packet()
 {
-    int segments_sent = 0;
-    int ack_count = 0; // Simulated count of ACKs received
+    // Simulate sending a packet
+    cout << "Sending packet. cwnd = " << cwnd << endl;
+}
 
-    while (segments_sent < MAX_SEGMENTS)
+// Function to simulate receiving an acknowledgment
+void receive_acknowledgment()
+{
+    // Simulate receiving an acknowledgment
+    cout << "Received acknowledgment." << endl;
+}
+
+// Main simulation loop
+void simulate_tcp()
+{
+    int total_packets_to_send = 1000; // Total packets to send in simulation
+
+    for (int packet_sent = 0; packet_sent < total_packets_to_send; ++packet_sent)
     {
-        // Slow start phase
-        while (cwnd < ssthresh)
+        // Send packets up to the current cwnd limit
+        for (int i = 0; i < min(cwnd - packets_in_flight, MAX_PACKETS_IN_FLIGHT - packets_in_flight); ++i)
         {
-            // Send packets up to the current cwnd
-            for (int i = 0; i < cwnd; ++i)
-            {
-                if (segments_sent < MAX_SEGMENTS)
-                {
-                    cout << "Sending segment " << segments_sent << endl;
-                    segments_sent++;
-                }
-            }
-            // Simulate ACK reception
-            ack_count++;
-            cout << "ACK received, ack_count = " << ack_count << endl;
-            // Exponential increase in cwnd
-            cwnd *= 2;
+            send_packet();
+            packets_in_flight++;
         }
 
-        // Congestion avoidance phase
-        while (segments_sent < MAX_SEGMENTS)
+        // Simulate receiving acknowledgments
+        for (int ack = 0; ack < packets_in_flight; ++ack)
         {
-            // Send packets up to the current cwnd
-            for (int i = 0; i < cwnd; ++i)
+            receive_acknowledgment();
+            packets_in_flight--;
+
+            // Handle acknowledgment based on TCP New Reno algorithm
+            if (in_slow_start)
             {
-                if (segments_sent < MAX_SEGMENTS)
+                // In Slow Start phase
+                if (cwnd < ssthresh)
                 {
-                    cout << "Sending segment " << segments_sent << endl;
-                    segments_sent++;
+                    cwnd++; // Exponential increase in cwnd
+                }
+                else
+                {
+                    in_slow_start = false;
                 }
             }
-            // Simulate ACK reception
-            ack_count++;
-            cout << "ACK received, ack_count = " << ack_count << endl;
-
-            // Linear increase in cwnd
-            cwnd++;
-
-            // Simulate congestion (packet loss or duplicate ACKs)
-            if (ack_count % 5 == 0)
-            { // Simulate packet loss
-                cout << "Duplicate ACKs detected, entering fast recovery phase..." << endl;
-                ssthresh = max(cwnd / 2, 2); // Reduce threshold
-                cwnd = ssthresh + 3;         // Fast recovery: increase cwnd by number of duplicate ACKs
-                ack_count++;                 // Simulate ACK for fast recovery
-                cout << "Exit fast recovery phase, cwnd = " << cwnd << ", ssthresh = " << ssthresh << endl;
-                break; // Exit congestion avoidance phase
+            else
+            {
+                // In Congestion Avoidance phase
+                cwnd += 1 / cwnd; // Slow linear increase in cwnd
             }
+        }
+
+        // Check for packet loss using duplicate acknowledgments
+        if (duplicate_ack_count == 3)
+        {
+            // Fast Retransmit/Fast Recovery
+            ssthresh = max(cwnd / 2, 2); // Set ssthresh
+            cwnd = ssthresh + 3;         // Reduce cwnd and adjust
+            duplicate_ack_count = 0;     // Reset duplicate acknowledgment count
         }
     }
 }
 
 int main()
 {
-    simulate_network();
-
-    // Wait for user input to exit
-    cout << "Simulation complete. Press Enter to exit..." << endl;
-    cin.get(); // Wait for user to press Enter
-
+    simulate_tcp();
     return 0;
 }
