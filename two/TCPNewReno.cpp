@@ -1,106 +1,95 @@
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
-class TCPNewReno
+// Simulation parameters
+const int INITIAL_CWND = 1;  // Initial congestion window size
+const int THRESHOLD = 16;    // Initial threshold
+const int MAX_PACKETS = 100; // Maximum packets to simulate
+
+// TCP state variables
+int cwnd = INITIAL_CWND;  // Congestion window
+int ssthresh = THRESHOLD; // Slow start threshold
+
+// Simulated packet class
+class Packet
 {
-private:
-    int cwnd;          // Congestion window size
-    int ssthresh;      // Slow start threshold
-    int flightSize;    // Number of packets in flight
-    int packetsAcked;  // Number of packets acknowledged
-    bool fastRecovery; // Flag to indicate if in fast recovery mode
-    int dupAcks;       // Count of duplicate acknowledgments received
-
 public:
-    TCPNewReno()
-    {
-        cwnd = 1;      // Initial congestion window size (1 for slow start)
-        ssthresh = 10; // Initial slow start threshold
-        flightSize = 0;
-        packetsAcked = 0;
-        fastRecovery = false;
-        dupAcks = 0;
-    }
+    bool acked; // Whether the packet has been acknowledged
+    Packet() : acked(false) {}
+};
 
-    void sendPacket()
+// Function to simulate packet loss (for simplicity, just set packet as not acked)
+void simulate_packet_loss(Packet &packet)
+{
+    packet.acked = false;
+}
+
+// Function to simulate receiving an ACK
+void receive_ack(Packet &packet)
+{
+    packet.acked = true;
+}
+
+// TCP New Reno congestion control algorithm
+void tcp_new_reno()
+{
+    vector<Packet> packets(MAX_PACKETS); // Simulated packets
+
+    int next_packet_index = 0; // Index of the next packet to send
+
+    while (next_packet_index < MAX_PACKETS)
     {
-        if (flightSize < cwnd)
+        // Send packets based on current cwnd
+        for (int i = 0; i < cwnd && next_packet_index < MAX_PACKETS; ++i)
         {
             // Simulate sending packet
-            flightSize++;
-            cout << "Sending packet " << flightSize << ", cwnd = " << cwnd << endl;
-        }
-        else
-        {
-            cout << "Congestion window full, cannot send more packets." << endl;
-        }
-    }
+            Packet &packet = packets[next_packet_index];
+            simulate_packet_loss(packet); // Simulate packet loss for demonstration
 
-    void receiveAck(bool isDuplicate)
-    {
-        packetsAcked++;
-        flightSize--;
-
-        if (isDuplicate)
-        {
-            dupAcks++;
-        }
-        else
-        {
-            dupAcks = 0; // Reset duplicate ACK counter
+            // Move to the next packet
+            ++next_packet_index;
         }
 
-        if (dupAcks == 3 && !fastRecovery)
-        { // Fast retransmit
-            cout << "Received 3 duplicate ACKs, performing fast retransmit." << endl;
-            ssthresh = max(cwnd / 2, 2); // Multiplicative decrease
-            cwnd = ssthresh + 3;         // Fast recovery threshold
-            fastRecovery = true;
-            dupAcks = 0;
-        }
-        else if (fastRecovery && packetsAcked >= cwnd)
+        // Simulate receiving ACKs
+        for (int i = 0; i < cwnd && i < MAX_PACKETS; ++i)
         {
-            cout << "Exiting fast recovery phase." << endl;
-            fastRecovery = false;
-            cwnd = ssthresh;
-        }
-        else
-        {
-            if (cwnd < ssthresh)
+            Packet &packet = packets[i];
+            if (!packet.acked)
             {
-                // Slow start phase
-                cwnd++;
-                cout << "In slow start phase. cwnd = " << cwnd << ", flightSize = " << flightSize << endl;
-            }
-            else
-            {
-                // Congestion avoidance phase
-                cwnd += 1.0 / cwnd;
-                cout << "In congestion avoidance phase. cwnd = " << cwnd << ", flightSize = " << flightSize << endl;
+                receive_ack(packet);
+
+                // Handle fast retransmit and fast recovery
+                if (packet.acked && i >= ssthresh)
+                {
+                    // Fast recovery phase
+                    cwnd++;
+                }
+                else
+                {
+                    // Congestion avoidance phase
+                    if (cwnd < ssthresh)
+                    {
+                        // Slow start phase
+                        cwnd *= 2;
+                    }
+                    else
+                    {
+                        // Congestion avoidance phase
+                        cwnd++;
+                    }
+                }
             }
         }
     }
-};
+}
 
 int main()
 {
-    TCPNewReno tcp;
+    // Run TCP New Reno simulation
+    tcp_new_reno();
 
-    // Simulate sending packets and receiving acknowledgments
-    for (int i = 0; i < 20; i++)
-    {
-        tcp.sendPacket();
-        if (i == 5 || i == 10 || i == 15)
-        {
-            // Simulate receiving duplicate ACKs
-            tcp.receiveAck(true);
-        }
-        else
-        {
-            tcp.receiveAck(false);
-        }
-    }
-
+    cout << "Simulation completed." << endl;
     return 0;
 }
